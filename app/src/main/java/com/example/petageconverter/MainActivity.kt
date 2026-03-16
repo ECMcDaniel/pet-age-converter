@@ -46,10 +46,11 @@ class MainActivity : ComponentActivity() {
 fun PetAgeConverterScreen() {
 
     /* ---------- state ---------- */
-    var pickedDate  by remember { mutableStateOf<LocalDate?>(null) }
-    var showPicker  by remember { mutableStateOf(false) }
-    var approxYears by remember { mutableStateOf(0f) }
-    var result      by remember { mutableStateOf("") }
+    var pickedDate      by remember { mutableStateOf<LocalDate?>(null) }
+    var showPicker      by remember { mutableStateOf(false) }
+    var approxYears     by remember { mutableStateOf(0f) }
+    var result          by remember { mutableStateOf("") }
+    val datePickerState =  rememberDatePickerState()
 
     /* ---------- date-picker dialog ---------- */
     if (showPicker) {
@@ -57,10 +58,9 @@ fun PetAgeConverterScreen() {
             onDismissRequest = { showPicker = false },
             confirmButton = { TextButton({ showPicker = false }) { Text("OK") } }
         ) {
-            val state = rememberDatePickerState()
-            DatePicker(state)
-            LaunchedEffect(state.selectedDateMillis) {
-                state.selectedDateMillis?.let {
+            DatePicker(datePickerState)
+            LaunchedEffect(datePickerState.selectedDateMillis) {
+                datePickerState.selectedDateMillis?.let {
                     pickedDate = Instant.ofEpochMilli(it)
                         .atZone(ZoneId.systemDefault())
                         .toLocalDate()
@@ -123,18 +123,22 @@ fun PetAgeConverterScreen() {
 
             Spacer(Modifier.height(12.dp))
 
-            /* slider */
+            /* slider — disabled when an exact birth date is chosen */
             Text(
                 text  = "Approximate age: ${"%.0f".format(approxYears)} yr",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary      // ← colored label
+                color = if (pickedDate != null)
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+                else
+                    MaterialTheme.colorScheme.primary
             )
 
             Slider(
                 value = approxYears,
                 onValueChange = { approxYears = it.roundToInt().toFloat() },
                 valueRange = 0f..30f,
-                steps = 0,
+                steps = 29,   // 31 discrete positions: 0, 1, 2 … 30
+                enabled = pickedDate == null,
                 modifier = Modifier.fillMaxWidth(),
                 colors = SliderDefaults.colors(
                     activeTrackColor   = MaterialTheme.colorScheme.primary,
@@ -183,7 +187,11 @@ fun PetAgeConverterScreen() {
 
             Spacer(Modifier.height(16.dp))
 
-            Text(result, style = MaterialTheme.typography.headlineSmall)
+            Text(
+                result,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onBackground
+            )
         }
     }
 }
