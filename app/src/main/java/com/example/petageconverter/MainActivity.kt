@@ -5,7 +5,6 @@ package com.example.petageconverter
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,8 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.petageconverter.ui.theme.PetAgeConverterTheme
 import java.time.Instant
@@ -48,7 +45,7 @@ fun PetAgeConverterScreen() {
     /* ---------- state ---------- */
     var pickedDate      by remember { mutableStateOf<LocalDate?>(null) }
     var showPicker      by remember { mutableStateOf(false) }
-    var approxYears     by remember { mutableStateOf(0f) }
+    var approxYears     by remember { mutableFloatStateOf(0f) }
     var result          by remember { mutableStateOf("") }
     val datePickerState =  rememberDatePickerState()
 
@@ -56,7 +53,11 @@ fun PetAgeConverterScreen() {
     if (showPicker) {
         DatePickerDialog(
             onDismissRequest = { showPicker = false },
-            confirmButton = { TextButton({ showPicker = false }) { Text("OK") } }
+            confirmButton = {
+                TextButton(onClick = { showPicker = false }) {
+                    Text("OK")
+                }
+            }
         ) {
             DatePicker(datePickerState)
             LaunchedEffect(datePickerState.selectedDateMillis) {
@@ -69,23 +70,14 @@ fun PetAgeConverterScreen() {
         }
     }
 
-    /* ---------- background + UI ---------- */
+    /* ---------- UI ---------- */
     Box(Modifier.fillMaxSize()) {
 
-        Image(
-            painter = painterResource(R.drawable.cc),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.matchParentSize()
-        )
-
-        // dim the photo for contrast
+        // Background color
         Box(
             Modifier
                 .matchParentSize()
-                .background(
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.05f)
-                )
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
         )
 
         /* foreground controls */
@@ -123,9 +115,9 @@ fun PetAgeConverterScreen() {
 
             Spacer(Modifier.height(12.dp))
 
-            /* slider — disabled when an exact birth date is chosen */
+            /* slider — disabled when an exact birthdate is chosen */
             Text(
-                text  = "Approximate age: ${"%.0f".format(approxYears)} yr",
+                text  = "Pet's chronological age: ${"%.0f".format(approxYears)} yr",
                 style = MaterialTheme.typography.titleMedium,
                 color = if (pickedDate != null)
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
@@ -137,7 +129,7 @@ fun PetAgeConverterScreen() {
                 value = approxYears,
                 onValueChange = { approxYears = it.roundToInt().toFloat() },
                 valueRange = 0f..30f,
-                steps = 29,   // 31 discrete positions: 0, 1, 2 … 30
+                steps = 29,
                 enabled = pickedDate == null,
                 modifier = Modifier.fillMaxWidth(),
                 colors = SliderDefaults.colors(
@@ -168,7 +160,7 @@ fun PetAgeConverterScreen() {
                         containerColor = Color(0xFF6F8BCD),
                         contentColor   = Color.White
                     )
-                ) { Text("🐶") }
+                ) { Text("🐶 Dog Years") }
 
                 Button(
                     onClick = {
@@ -182,7 +174,7 @@ fun PetAgeConverterScreen() {
                         containerColor = Color(0xFFB57EDC),
                         contentColor   = Color.White
                     )
-                ) { Text("🐱") }
+                ) { Text("🐱 Cat Years") }
             }
 
             Spacer(Modifier.height(16.dp))
@@ -197,26 +189,43 @@ fun PetAgeConverterScreen() {
 }
 
 /* ---------- helpers ---------- */
+
+/**
+ * Common standard for Pet to Human age conversion:
+ * 1st year ≈ 15 human years
+ * 2nd year ≈ 24 human years (total)
+ *
+ * Dogs (Average size): +5 human years per year after age 2
+ * Cats: +4 human years per year after age 2
+ */
 private fun convert(
     birthDate: LocalDate?,
     approxYears: Double,
-    toPet: (Double) -> Double
+    toHumanEquivalent: (Double) -> Double
 ): String {
-    val humanYears = birthDate?.let { bd ->
-        ChronoUnit.MONTHS.between(
-            bd.withDayOfMonth(1),
-            LocalDate.now().withDayOfMonth(1)
-        ) / 12.0
+    val chronologicalAge = birthDate?.let { bd ->
+        ChronoUnit.DAYS.between(bd, LocalDate.now()) / 365.25
     } ?: approxYears
 
-    return "≈ %.1f pet years".format(toPet(humanYears))
+    val humanAge = toHumanEquivalent(chronologicalAge)
+    
+    return if (birthDate != null) {
+        "= ${humanAge.roundToInt()} human years"
+    } else {
+        "≈ %.1f human years".format(humanAge)
+    }
 }
 
-private fun toDogYears(h: Double) =
-    if (h <= 2) h * 10 else 20 + (h - 2) * 4
+private fun toDogYears(petAge: Double) = when {
+    petAge <= 0 -> 0.0
+    petAge <= 1 -> petAge * 15
+    petAge <= 2 -> 15 + (petAge - 1) * 9
+    else        -> 24 + (petAge - 2) * 5
+}
 
-private fun toCatYears(h: Double) = when {
-    h < 1  -> h * 15
-    h < 2  -> 15 + (h - 1) * 9
-    else   -> 24 + (h - 2) * 4
+private fun toCatYears(petAge: Double) = when {
+    petAge <= 0 -> 0.0
+    petAge <= 1 -> petAge * 15
+    petAge <= 2 -> 15 + (petAge - 1) * 9
+    else        -> 24 + (petAge - 2) * 4
 }
